@@ -1,0 +1,7 @@
+- IP Range on Shaw is from 10.0.0.1 to 10.0.0.255
+- Gateway is likely 10.0.0.1 (whatever your router's ip is)
+- Change the IP Address to something within the range that is free
+- You can do a quick network scan using fing to see the current IP of your server and just assign that within IP Address (ensure you do this as we dont want to use IPv6)
+- Netmask should be 255.255.255.0 or whatever your subnet mask is for me it was 255.255.255.0/24
+- Check on windows by running ipconfig
+- DNS Server you can use Cloudflare's or Google's server

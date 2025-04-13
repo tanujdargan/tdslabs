@@ -1,0 +1,1 @@
+https://community-scripts.github.io/ProxmoxVE/scripts?id=post-pbs-install

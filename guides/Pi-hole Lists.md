@@ -1,0 +1,8 @@
+- https://adaway.org/hosts.txt
+- https://raw.githubusercontent.com/anudeepND/blacklist/master/facebook.txt
+- https://raw.githubusercontent.com/chadmayfield/my-pihole-blocklists/master/lists/pi_blocklist_porn_top1m.list
+- https://raw.githubusercontent.com/PolishFiltersTeam/KADhosts/master/KADhosts.txt
+- https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts
+- https://v.firebog.net/hosts/AdguardDNS.txt
+- https://v.firebog.net/hosts/Easyprivacy.txt
+- https://v.firebog.net/hosts/Prigent-Ads.txt
