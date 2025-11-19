@@ -27,3 +27,9 @@ usermod -aG render jellyfin
 1) then restart the jellyfin service by doing: `systemctl restart jellyfin.service`
 2) Now we can test transcoding by enabling it in the jellyfin dashboard
 Reference Youtube Video: https://www.youtube.com/watch?v=XAa_qpNmzZs
+
+In Jellyfin, remember to adjust your settings based on your hardware, for me the following settings work with an i5-8500:
+
+<img width="1099" height="987" alt="image" src="https://github.com/user-attachments/assets/34c4b6f2-e1a8-490b-bf30-8ba793161499" />
+<img width="1079" height="564" alt="image" src="https://github.com/user-attachments/assets/ee4eb141-6a31-400b-87c3-997ad9d47c61" />
+
