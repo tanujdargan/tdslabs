@@ -1,0 +1,63 @@
+<%- include('partials/head') %>
+<%- include('partials/header') %>
+
+<section class="card">
+  <h2>Add an artifact</h2>
+  <p class="muted">Paste a public Claude artifact link (or any public page). It will be cloned and hosted here, then re-checked on a schedule.</p>
+  <% if (!browserEnabled) { %>
+    <div class="flash flash-warning">Headless browser not detected — clones use a plain HTTP fetch and may not be fully self-contained. Install Chromium to enable full rendering.</div>
+  <% } %>
+  <form method="post" action="/artifacts" class="stack">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <label>Source URL
+      <input type="url" name="source_url" placeholder="https://claude.ai/public/artifacts/…" required>
+    </label>
+    <div class="row">
+      <label class="grow">Title <small class="muted">(optional)</small>
+        <input type="text" name="title" placeholder="Auto-detected if left blank">
+      </label>
+      <label>Check every (min)
+        <input type="number" name="interval" value="<%= defaultInterval %>" min="5" step="5">
+      </label>
+    </div>
+    <label class="check">
+      <input type="checkbox" name="is_public" checked> Publicly viewable at <code>/a/&lt;slug&gt;</code>
+    </label>
+    <button type="submit" class="btn btn-primary">Add &amp; clone now</button>
+  </form>
+</section>
+
+<section>
+  <h2>Tracked artifacts <span class="pill"><%= artifacts.length %></span></h2>
+  <% if (artifacts.length === 0) { %>
+    <p class="muted">Nothing yet. Add your first artifact above.</p>
+  <% } else { %>
+    <table class="table">
+      <thead>
+        <tr><th>Artifact</th><th>Status</th><th>Snapshots</th><th>Last checked</th><th>Every</th><th></th></tr>
+      </thead>
+      <tbody>
+        <% artifacts.forEach(function (a) { %>
+          <tr>
+            <td>
+              <a class="strong" href="/artifacts/<%= a.id %>"><%= a.title || a.slug %></a>
+              <div class="muted small"><a href="/a/<%= a.slug %>" target="_blank" rel="noopener">/a/<%= a.slug %></a><% if (!a.is_public) { %> · <span class="tag">private</span><% } %><% if (!a.enabled) { %> · <span class="tag">paused</span><% } %></div>
+            </td>
+            <td><span class="status status-<%= a.last_status || 'new' %>"><%= a.last_status || 'new' %></span></td>
+            <td><%= a.snapshot_count %></td>
+            <td class="muted small"><%= a.last_checked_at || '—' %></td>
+            <td class="muted small"><%= a.check_interval_minutes %>m</td>
+            <td>
+              <form method="post" action="/artifacts/<%= a.id %>/refresh" class="inline">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <button class="btn btn-small">Refresh</button>
+              </form>
+            </td>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  <% } %>
+</section>
+
+<%- include('partials/footer') %>

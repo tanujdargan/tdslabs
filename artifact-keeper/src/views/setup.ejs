@@ -1,0 +1,23 @@
+<%- include('partials/head') %>
+<div class="wrap narrow">
+  <div class="card">
+    <h1>Welcome 👋</h1>
+    <p class="muted">Create the administrator account to finish setting up Artifact Keeper.</p>
+    <% if (error) { %><div class="flash flash-danger"><%= error %></div><% } %>
+    <form method="post" action="/setup" class="stack">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <label>Username
+        <input type="text" name="username" autocomplete="username" required autofocus>
+      </label>
+      <label>Password <small class="muted">(min 8 characters)</small>
+        <input type="password" name="password" autocomplete="new-password" minlength="8" required>
+      </label>
+      <label>Confirm password
+        <input type="password" name="password2" autocomplete="new-password" minlength="8" required>
+      </label>
+      <button type="submit" class="btn btn-primary">Create account</button>
+    </form>
+  </div>
+</div>
+</body>
+</html>

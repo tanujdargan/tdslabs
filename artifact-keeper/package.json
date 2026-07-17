@@ -1,0 +1,30 @@
+{
+  "name": "artifact-keeper",
+  "version": "0.1.0",
+  "description": "Self-hosted server that clones public Claude artifact links, hosts them locally, and re-checks them for updates on a schedule.",
+  "license": "MIT",
+  "type": "commonjs",
+  "bin": {
+    "artifact-keeper": "src/server.js"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "NODE_ENV=development node src/server.js",
+    "postinstall": "node -e \"process.exit(0)\""
+  },
+  "engines": {
+    "node": ">=18.17.0"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^11.3.0",
+    "better-sqlite3-session-store": "^0.1.0",
+    "ejs": "^3.1.10",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.4.0",
+    "express-session": "^1.18.0",
+    "helmet": "^7.1.0",
+    "node-cron": "^3.0.3",
+    "playwright-core": "^1.47.0"
+  }
+}
