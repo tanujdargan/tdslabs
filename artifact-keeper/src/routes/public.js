@@ -35,6 +35,13 @@ function serveSnapshot(req, res, artifact, snapshot) {
   }
   res.set('Content-Type', 'text/html; charset=utf-8');
   res.set('X-Artifact-Snapshot', String(snapshot.id));
+  // Let a CDN (e.g. Cloudflare) revalidate so a refreshed snapshot is never
+  // served stale. Private artifacts must never be cached by shared caches.
+  if (artifact.is_public) {
+    res.set('Cache-Control', 'no-cache');
+  } else {
+    res.set('Cache-Control', 'private, no-store');
+  }
   res.send(html);
 }
 

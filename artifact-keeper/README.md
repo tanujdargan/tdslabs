@@ -106,6 +106,59 @@ artifacts.example.com {
 }
 ```
 
+### Cloudflare Tunnel
+
+A tunnel terminates TLS at Cloudflare and forwards plain HTTP to the app over
+localhost, so there's no port to open on your router. Two things matter:
+
+1. **Bind to localhost only** — the tunnel is the only thing that needs to reach
+   the app. In `/etc/artifact-keeper.env`:
+
+   ```ini
+   ARTIFACT_KEEPER_HOST=127.0.0.1
+   ARTIFACT_KEEPER_SECURE_COOKIE=true
+   ARTIFACT_KEEPER_BASE_URL=https://artifacts.example.com
+   ```
+
+   `SECURE_COOKIE=true` is required: Cloudflare serves the site over HTTPS, and
+   the app already trusts the `X-Forwarded-Proto` header `cloudflared` sends, so
+   the login cookie is set correctly. Then
+   `sudo systemctl restart artifact-keeper`.
+
+2. **Point the tunnel ingress at `http://127.0.0.1:8787`.**
+
+**Dashboard (Zero Trust) route:** create a tunnel, add a public hostname
+`artifacts.example.com` → service `HTTP` → `127.0.0.1:8787`. Done.
+
+**Config-file route** (`cloudflared` installed on the same host):
+
+```yaml
+# ~/.cloudflared/config.yml
+tunnel: <tunnel-uuid>
+credentials-file: /root/.cloudflared/<tunnel-uuid>.json
+ingress:
+  - hostname: artifacts.example.com
+    service: http://127.0.0.1:8787
+  - service: http_status:404
+```
+
+```bash
+cloudflared tunnel route dns <tunnel-name> artifacts.example.com
+cloudflared service install   # run as a systemd service
+```
+
+Notes:
+
+- **Caching:** public artifacts are served with `Cache-Control: no-cache` so a
+  freshly captured snapshot is never served stale; private artifacts use
+  `no-store`. Leave Cloudflare's default caching as-is (it won't cache HTML) —
+  don't add a "Cache Everything" rule unless you accept a delay after updates.
+- **Auth:** the app has its own login, so you don't need Cloudflare Access. If
+  you add Access anyway, keep `/health` public if you want external uptime
+  checks, or protect everything — your call.
+- **Large clones:** snapshots inline assets as data URIs and can be a few MB;
+  that's well within Cloudflare's response limits.
+
 ---
 
 ## Managing the service
