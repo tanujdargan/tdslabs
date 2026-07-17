@@ -46,6 +46,11 @@ const config = {
   port: envInt('ARTIFACT_KEEPER_PORT', 8787),
   // Public base URL used when displaying share links (no trailing slash).
   baseUrl: (process.env.ARTIFACT_KEEPER_BASE_URL || '').replace(/\/$/, ''),
+  // Optional dedicated, cookie-free hostname for serving cloned artifacts (e.g.
+  // "view.example.com"). When set, public artifacts are served only there — with
+  // same-origin storage enabled — while the session-bearing dashboard stays on
+  // the main host, so a cloned page can never reach the dashboard's origin.
+  artifactHost: (process.env.ARTIFACT_KEEPER_ARTIFACT_HOST || '').trim().toLowerCase(),
   dataDir,
   dbPath: path.join(dataDir, 'artifact-keeper.db'),
   artifactsDir: path.join(dataDir, 'artifacts'),
@@ -77,5 +82,9 @@ const config = {
       'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
   },
 };
+
+// Absolute base for public artifact share links (the artifact host if set,
+// else whatever baseUrl the dashboard uses).
+config.artifactBaseUrl = config.artifactHost ? `https://${config.artifactHost}` : config.baseUrl;
 
 module.exports = config;

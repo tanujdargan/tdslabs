@@ -49,6 +49,23 @@ router.post('/artifacts', auth.verifyCsrf, async (req, res) => {
   }
 });
 
+// Import an artifact from raw HTML the user saved themselves. The large request
+// body is handled by a route-specific parser configured in server.js.
+router.post('/import', auth.verifyCsrf, (req, res) => {
+  try {
+    const artifact = artifacts.importArtifact({
+      html: req.body.html,
+      title: req.body.title,
+      isPublic: req.body.is_public === 'on' || req.body.is_public === '1',
+    });
+    req.session.flash = { type: 'success', message: 'Artifact imported.' };
+    res.redirect(`/artifacts/${artifact.id}`);
+  } catch (err) {
+    req.session.flash = { type: 'danger', message: err.message };
+    res.redirect('/');
+  }
+});
+
 router.get('/artifacts/:id', (req, res) => {
   const artifact = artifacts.getArtifact(req.params.id);
   if (!artifact) {
@@ -66,6 +83,13 @@ router.get('/artifacts/:id', (req, res) => {
 router.post('/artifacts/:id/refresh', auth.verifyCsrf, async (req, res) => {
   const artifact = artifacts.getArtifact(req.params.id);
   if (!artifact) return res.redirect('/');
+  if (artifacts.isImported(artifact)) {
+    req.session.flash = {
+      type: 'info',
+      message: 'Imported artifacts have no live source to re-clone. Import again to replace it.',
+    };
+    return res.redirect(`/artifacts/${artifact.id}`);
+  }
   try {
     const result = await artifacts.refreshArtifact(artifact.id);
     if (result.changed) {

@@ -2,15 +2,37 @@
 <%- include('partials/header') %>
 
 <section class="card">
-  <h2>Add an artifact</h2>
-  <p class="muted">Paste a public Claude artifact link (or any public page). It will be cloned and hosted here, then re-checked on a schedule.</p>
+  <h2>Import an artifact</h2>
+  <p class="muted">Open the artifact in your browser, save the rendered page (<strong>Ctrl/Cmd&nbsp;S → “Web Page, HTML Only”</strong>), then upload or paste it here. This is the reliable way to host Claude artifacts, which sit behind a bot challenge that blocks automated cloning.</p>
+  <form method="post" action="/import" class="stack">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <label>HTML file
+      <input type="file" id="html-file" accept=".html,.htm,text/html">
+    </label>
+    <label>…or paste HTML
+      <textarea name="html" id="html-content" rows="6" placeholder="&lt;!DOCTYPE html&gt;…"></textarea>
+    </label>
+    <div class="row">
+      <label class="grow">Title <small class="muted">(optional)</small>
+        <input type="text" name="title" id="import-title" placeholder="Auto-filled from the file name">
+      </label>
+    </div>
+    <label class="check">
+      <input type="checkbox" name="is_public" checked> Publicly viewable at <code>/a/&lt;slug&gt;</code>
+    </label>
+    <button type="submit" class="btn btn-primary">Import</button>
+  </form>
+</section>
+
+<details class="card">
+  <summary><strong>Add from a URL</strong> <span class="muted small">— clones a public page on a schedule (won’t work for Claude artifacts)</span></summary>
   <% if (!browserEnabled) { %>
     <div class="flash flash-warning">Headless browser not detected — clones use a plain HTTP fetch and may not be fully self-contained. Install Chromium to enable full rendering.</div>
   <% } %>
   <form method="post" action="/artifacts" class="stack">
     <input type="hidden" name="_csrf" value="<%= csrfToken %>">
     <label>Source URL
-      <input type="url" name="source_url" placeholder="https://claude.ai/public/artifacts/…" required>
+      <input type="url" name="source_url" placeholder="https://example.com/page">
     </label>
     <div class="row">
       <label class="grow">Title <small class="muted">(optional)</small>
@@ -23,9 +45,9 @@
     <label class="check">
       <input type="checkbox" name="is_public" checked> Publicly viewable at <code>/a/&lt;slug&gt;</code>
     </label>
-    <button type="submit" class="btn btn-primary">Add &amp; clone now</button>
+    <button type="submit" class="btn">Add &amp; clone now</button>
   </form>
-</section>
+</details>
 
 <section>
   <h2>Tracked artifacts <span class="pill"><%= artifacts.length %></span></h2>
@@ -41,17 +63,19 @@
           <tr>
             <td>
               <a class="strong" href="/artifacts/<%= a.id %>"><%= a.title || a.slug %></a>
-              <div class="muted small"><a href="/a/<%= a.slug %>" target="_blank" rel="noopener">/a/<%= a.slug %></a><% if (!a.is_public) { %> · <span class="tag">private</span><% } %><% if (!a.enabled) { %> · <span class="tag">paused</span><% } %></div>
+              <div class="muted small"><a href="<%= ((a.is_public && artifactBaseUrl) ? artifactBaseUrl : '') + '/a/' + a.slug %>" target="_blank" rel="noopener">/a/<%= a.slug %></a><% if (!a.is_public) { %> · <span class="tag">private</span><% } %><% if (a.source_url === 'imported') { %> · <span class="tag">imported</span><% } else if (!a.enabled) { %> · <span class="tag">paused</span><% } %></div>
             </td>
             <td><span class="status status-<%= a.last_status || 'new' %>"><%= a.last_status || 'new' %></span></td>
             <td><%= a.snapshot_count %></td>
             <td class="muted small"><%= a.last_checked_at || '—' %></td>
             <td class="muted small"><%= a.check_interval_minutes %>m</td>
             <td>
-              <form method="post" action="/artifacts/<%= a.id %>/refresh" class="inline">
-                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                <button class="btn btn-small">Refresh</button>
-              </form>
+              <% if (a.source_url !== 'imported') { %>
+                <form method="post" action="/artifacts/<%= a.id %>/refresh" class="inline">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <button class="btn btn-small">Refresh</button>
+                </form>
+              <% } %>
             </td>
           </tr>
         <% }); %>

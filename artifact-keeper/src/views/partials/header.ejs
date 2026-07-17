@@ -4,6 +4,7 @@
     <nav class="nav">
       <% if (locals.currentUser) { %>
         <a href="/">Artifacts</a>
+        <% if (currentUser.role === 'admin') { %><a href="/users">Users</a><% } %>
         <span class="who">@<%= currentUser.username %></span>
         <form method="post" action="/logout" class="inline">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">

@@ -26,7 +26,7 @@ router.post('/setup', auth.verifyCsrf, (req, res) => {
   const { username, password, password2 } = req.body;
   try {
     if (password !== password2) throw new Error('Passwords do not match.');
-    const user = auth.createUser(username, password);
+    const user = auth.createUser(username, password, 'admin');
     // Regenerate the session id when elevating to the new admin (anti-fixation).
     req.session.regenerate((err) => {
       if (err) {

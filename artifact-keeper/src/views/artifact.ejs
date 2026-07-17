@@ -8,20 +8,27 @@
     <div>
       <h1 class="tight"><%= artifact.title || artifact.slug %></h1>
       <p class="muted small">
-        Source: <a href="<%= artifact.source_url %>" target="_blank" rel="noopener"><%= artifact.source_url %></a>
+        <% if (artifact.source_url === 'imported') { %>
+          Source: imported HTML <span class="tag">imported</span>
+        <% } else { %>
+          Source: <a href="<%= artifact.source_url %>" target="_blank" rel="noopener"><%= artifact.source_url %></a>
+        <% } %>
       </p>
       <p class="small">
         Hosted at:
-        <% var share = (baseUrl || '') + '/a/' + artifact.slug; %>
-        <a href="/a/<%= artifact.slug %>" target="_blank" rel="noopener"><%= share %></a>
+        <% var base = (artifact.is_public && artifactBaseUrl) ? artifactBaseUrl : (baseUrl || ''); %>
+        <% var share = base + '/a/' + artifact.slug; %>
+        <a href="<%= share || ('/a/' + artifact.slug) %>" target="_blank" rel="noopener"><%= share || ('/a/' + artifact.slug) %></a>
       </p>
     </div>
-    <div class="actions">
-      <form method="post" action="/artifacts/<%= artifact.id %>/refresh" class="inline">
-        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-        <button class="btn btn-primary">Refresh now</button>
-      </form>
-    </div>
+    <% if (artifact.source_url !== 'imported') { %>
+      <div class="actions">
+        <form method="post" action="/artifacts/<%= artifact.id %>/refresh" class="inline">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button class="btn btn-primary">Refresh now</button>
+        </form>
+      </div>
+    <% } %>
   </div>
   <div class="meta-grid">
     <div><span class="muted small">Status</span><br><span class="status status-<%= artifact.last_status || 'new' %>"><%= artifact.last_status || 'new' %></span></div>

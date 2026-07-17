@@ -1,0 +1,63 @@
+<%- include('partials/head') %>
+<%- include('partials/header') %>
+
+<section class="card">
+  <h2>Create a user</h2>
+  <p class="muted">Provision a new account. Admins can manage users; regular users can manage artifacts.</p>
+  <form method="post" action="/users" class="stack">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <div class="row">
+      <label class="grow">Username
+        <input type="text" name="username" autocomplete="off" required>
+      </label>
+      <label>Role
+        <select name="role">
+          <option value="user">user</option>
+          <option value="admin">admin</option>
+        </select>
+      </label>
+    </div>
+    <label>Password <small class="muted">(min 8 characters)</small>
+      <input type="password" name="password" autocomplete="new-password" minlength="8" required>
+    </label>
+    <button type="submit" class="btn btn-primary">Create user</button>
+  </form>
+</section>
+
+<section>
+  <h2>Users <span class="pill"><%= users.length %></span></h2>
+  <table class="table">
+    <thead>
+      <tr><th>Username</th><th>Role</th><th>Created</th><th>Actions</th></tr>
+    </thead>
+    <tbody>
+      <% users.forEach(function (u) { %>
+        <tr>
+          <td>
+            <span class="strong">@<%= u.username %></span>
+            <% if (currentUser.id === u.id) { %> <span class="tag">you</span><% } %>
+          </td>
+          <td><span class="tag"><%= u.role %></span></td>
+          <td class="muted small"><%= u.created_at %></td>
+          <td>
+            <div class="actions">
+              <form method="post" action="/users/<%= u.id %>/password" class="inline row">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <input type="password" name="password" placeholder="New password" minlength="8" required>
+                <button type="submit" class="btn btn-small">Reset password</button>
+              </form>
+              <% if (currentUser.id !== u.id) { %>
+                <form method="post" action="/users/<%= u.id %>/delete" class="inline" data-confirm="Delete user @<%= u.username %>?">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <button type="submit" class="btn btn-small btn-danger">Delete</button>
+                </form>
+              <% } %>
+            </div>
+          </td>
+        </tr>
+      <% }); %>
+    </tbody>
+  </table>
+</section>
+
+<%- include('partials/footer') %>
