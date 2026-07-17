@@ -1,0 +1,87 @@
+<%- include('partials/head') %>
+<%- include('partials/header') %>
+
+<p><a class="muted" href="/">← All artifacts</a></p>
+
+<section class="card">
+  <div class="row between">
+    <div>
+      <h1 class="tight"><%= artifact.title || artifact.slug %></h1>
+      <p class="muted small">
+        Source: <a href="<%= artifact.source_url %>" target="_blank" rel="noopener"><%= artifact.source_url %></a>
+      </p>
+      <p class="small">
+        Hosted at:
+        <% var share = (baseUrl || '') + '/a/' + artifact.slug; %>
+        <a href="/a/<%= artifact.slug %>" target="_blank" rel="noopener"><%= share %></a>
+      </p>
+    </div>
+    <div class="actions">
+      <form method="post" action="/artifacts/<%= artifact.id %>/refresh" class="inline">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <button class="btn btn-primary">Refresh now</button>
+      </form>
+    </div>
+  </div>
+  <div class="meta-grid">
+    <div><span class="muted small">Status</span><br><span class="status status-<%= artifact.last_status || 'new' %>"><%= artifact.last_status || 'new' %></span></div>
+    <div><span class="muted small">Last checked</span><br><%= artifact.last_checked_at || '—' %></div>
+    <div><span class="muted small">Interval</span><br><%= artifact.check_interval_minutes %> min</div>
+    <div><span class="muted small">Visibility</span><br><%= artifact.is_public ? 'public' : 'private' %></div>
+    <div><span class="muted small">Scheduler</span><br><%= artifact.enabled ? 'active' : 'paused' %></div>
+  </div>
+  <% if (artifact.last_error) { %>
+    <div class="flash flash-danger">Last error: <%= artifact.last_error %></div>
+  <% } %>
+</section>
+
+<section class="card">
+  <h2>Settings</h2>
+  <form method="post" action="/artifacts/<%= artifact.id %>/edit" class="stack">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <div class="row">
+      <label class="grow">Title
+        <input type="text" name="title" value="<%= artifact.title || '' %>">
+      </label>
+      <label>Check every (min)
+        <input type="number" name="interval" value="<%= artifact.check_interval_minutes %>" min="5" step="5">
+      </label>
+    </div>
+    <label class="check"><input type="checkbox" name="is_public" <%= artifact.is_public ? 'checked' : '' %>> Public</label>
+    <label class="check"><input type="checkbox" name="enabled" <%= artifact.enabled ? 'checked' : '' %>> Scheduled re-checks enabled</label>
+    <button class="btn">Save settings</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Snapshots <span class="pill"><%= snapshots.length %></span></h2>
+  <% if (snapshots.length === 0) { %>
+    <p class="muted">No snapshots captured yet.</p>
+  <% } else { %>
+    <table class="table">
+      <thead><tr><th>#</th><th>Captured</th><th>Method</th><th>Size</th><th>Hash</th><th></th></tr></thead>
+      <tbody>
+        <% snapshots.forEach(function (s) { %>
+          <tr class="<%= current && current.id === s.id ? 'is-current' : '' %>">
+            <td><%= s.id %><% if (current && current.id === s.id) { %> <span class="tag">current</span><% } %></td>
+            <td class="small"><%= s.created_at %></td>
+            <td class="small"><%= s.method %></td>
+            <td class="small"><%= (s.size_bytes / 1024).toFixed(1) %> KB</td>
+            <td class="small mono"><%= s.hash.slice(0, 12) %></td>
+            <td><a class="btn btn-small" href="/a/<%= artifact.slug %>/v/<%= s.id %>" target="_blank" rel="noopener">View</a></td>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  <% } %>
+</section>
+
+<section class="card danger-zone">
+  <h2>Danger zone</h2>
+  <form method="post" action="/artifacts/<%= artifact.id %>/delete" onsubmit="return confirm('Delete this artifact and all its snapshots?');">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <button class="btn btn-danger">Delete artifact</button>
+  </form>
+</section>
+
+<%- include('partials/footer') %>

@@ -1,0 +1,30 @@
+# Reference systemd unit. The installer generates a customised copy at
+# /etc/systemd/system/artifact-keeper.service — edit that one, not this file.
+#
+# Manual install:
+#   sudo cp artifact-keeper.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now artifact-keeper
+
+[Unit]
+Description=Artifact Keeper — self-hosted Claude artifact mirror
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=artifactkeeper
+Group=artifactkeeper
+WorkingDirectory=/opt/artifact-keeper
+EnvironmentFile=/etc/artifact-keeper.env
+ExecStart=/usr/bin/node /opt/artifact-keeper/src/server.js
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/artifact-keeper
+Environment=PLAYWRIGHT_BROWSERS_PATH=/var/lib/artifact-keeper/.pw-browsers
+
+[Install]
+WantedBy=multi-user.target

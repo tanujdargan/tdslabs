@@ -1,0 +1,19 @@
+<header class="topbar">
+  <div class="wrap topbar-inner">
+    <a class="brand" href="/">📦 Artifact Keeper</a>
+    <nav class="nav">
+      <% if (currentUser) { %>
+        <a href="/">Artifacts</a>
+        <span class="who">@<%= currentUser.username %></span>
+        <form method="post" action="/logout" class="inline">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button type="submit" class="linkbtn">Sign out</button>
+        </form>
+      <% } %>
+    </nav>
+  </div>
+</header>
+<main class="wrap">
+  <% if (typeof flash !== 'undefined' && flash) { %>
+    <div class="flash flash-<%= flash.type %>"><%= flash.message %></div>
+  <% } %>
