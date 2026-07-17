@@ -32,14 +32,13 @@ function createUser(username, password) {
   return getUserById(info.lastInsertRowid);
 }
 
-function verifyCredentials(username, password) {
+// Async so the ~300ms bcrypt work doesn't block the event loop during a login.
+// No dummy-compare: for a single-admin app, username enumeration isn't a real
+// threat, so the timing mitigation isn't worth blocking on.
+async function verifyCredentials(username, password) {
   const user = getUserByUsername(String(username || '').trim());
-  if (!user) {
-    // Perform a dummy compare to reduce timing differences.
-    bcrypt.compareSync(String(password || ''), '$2a$12$0000000000000000000000000000000000000000000000000000');
-    return null;
-  }
-  const ok = bcrypt.compareSync(String(password || ''), user.password_hash);
+  if (!user) return null;
+  const ok = await bcrypt.compare(String(password || ''), user.password_hash);
   return ok ? user : null;
 }
 

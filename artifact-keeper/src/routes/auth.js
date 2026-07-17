@@ -27,9 +27,18 @@ router.post('/setup', auth.verifyCsrf, (req, res) => {
   try {
     if (password !== password2) throw new Error('Passwords do not match.');
     const user = auth.createUser(username, password);
-    req.session.userId = user.id;
-    req.session.flash = { type: 'success', message: 'Admin account created. Welcome!' };
-    res.redirect('/');
+    // Regenerate the session id when elevating to the new admin (anti-fixation).
+    req.session.regenerate((err) => {
+      if (err) {
+        return res.status(500).render('setup', {
+          title: 'Set up Artifact Keeper',
+          error: 'Could not start session.',
+        });
+      }
+      req.session.userId = user.id;
+      req.session.flash = { type: 'success', message: 'Admin account created. Welcome!' };
+      res.redirect('/');
+    });
   } catch (err) {
     res.status(400).render('setup', { title: 'Set up Artifact Keeper', error: err.message });
   }
@@ -43,9 +52,14 @@ router.get('/login', (req, res) => {
   res.render('login', { title: 'Sign in', error: null });
 });
 
-router.post('/login', loginLimiter, auth.verifyCsrf, (req, res) => {
+router.post('/login', loginLimiter, auth.verifyCsrf, async (req, res, next) => {
   const { username, password } = req.body;
-  const user = auth.verifyCredentials(username, password);
+  let user;
+  try {
+    user = await auth.verifyCredentials(username, password);
+  } catch (err) {
+    return next(err);
+  }
   if (!user) {
     return res.status(401).render('login', { title: 'Sign in', error: 'Invalid username or password.' });
   }

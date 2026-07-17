@@ -143,6 +143,8 @@ if [ ! -f "$ENV_FILE" ]; then
     echo "# ARTIFACT_KEEPER_SECURE_COOKIE=true"
     echo "# ARTIFACT_KEEPER_BASE_URL=https://artifacts.example.com"
     [ -n "$CHROMIUM_PATH" ] && echo "ARTIFACT_KEEPER_CHROMIUM_PATH=$CHROMIUM_PATH"
+    # Force fetch-only so a pre-existing system Chromium isn't picked up.
+    [ "${AK_NO_BROWSER:-0}" = "1" ] && echo "ARTIFACT_KEEPER_DISABLE_BROWSER=true"
   } > "$ENV_FILE"
   chmod 640 "$ENV_FILE"
 else

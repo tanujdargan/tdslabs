@@ -20,18 +20,29 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 app.disable('x-powered-by');
 
-// Keep useful security headers but avoid breaking hosting/embedding of cloned
-// artifacts (which contain their own inline scripts and may be iframed).
-app.use(
-  helmet({
-    contentSecurityPolicy: false,
-    frameguard: false,
-    crossOriginOpenerPolicy: false,
-    crossOriginEmbedderPolicy: false,
-    crossOriginResourcePolicy: false,
-    hsts: false,
-  })
-);
+// Strict headers (incl. CSP) for the dashboard. `upgrade-insecure-requests` is
+// dropped so the app still works on a plain-HTTP LAN. Cloned artifacts get a
+// relaxed set instead — they carry their own inline scripts and are served
+// with a `sandbox` CSP (opaque origin) in routes/public.js, so they can't
+// touch the dashboard's origin, cookies, or CSRF token.
+const strictHelmet = helmet({
+  contentSecurityPolicy: {
+    useDefaults: true,
+    directives: { 'upgrade-insecure-requests': null },
+  },
+});
+const artifactHelmet = helmet({
+  contentSecurityPolicy: false,
+  frameguard: false,
+  crossOriginOpenerPolicy: false,
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: false,
+  hsts: false,
+});
+app.use((req, res, next) => {
+  if (req.path.startsWith('/a/')) return artifactHelmet(req, res, next);
+  return strictHelmet(req, res, next);
+});
 
 app.use(
   session({
@@ -55,21 +66,29 @@ app.use(
 app.use(express.urlencoded({ extended: false, limit: '256kb' }));
 app.use('/static', express.static(path.join(__dirname, '..', 'public'), { maxAge: '1h' }));
 
-// Expose common template data.
+// Public artifact hosting + health are mounted first — before the template-data
+// middleware — so anonymous visitors to /a/:slug and /health never touch the
+// session (no CSRF token, no flash), which would otherwise persist a session
+// row per request and bloat the store.
+app.use('/', require('./routes/public'));
+
+// Expose common template data (only reached by the authenticated app below).
 app.use((req, res, next) => {
   res.locals.currentUser = req.session.userId
     ? auth.getUserById(req.session.userId)
     : null;
-  res.locals.csrfToken = auth.ensureCsrfToken(req);
   res.locals.baseUrl = config.baseUrl;
   res.locals.flash = req.session.flash || null;
   delete req.session.flash;
+  // Generate the CSRF token lazily so a view that never references it doesn't
+  // needlessly mutate the session.
+  Object.defineProperty(res.locals, 'csrfToken', {
+    configurable: true,
+    enumerable: true,
+    get: () => auth.ensureCsrfToken(req),
+  });
   next();
 });
-
-// Public artifact hosting + health are mounted before the setup gate so cloned
-// pages stay reachable regardless of app state.
-app.use('/', require('./routes/public'));
 
 // Force first-run setup when no account exists.
 app.use(auth.requireSetup);

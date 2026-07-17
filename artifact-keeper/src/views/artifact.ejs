@@ -78,7 +78,7 @@
 
 <section class="card danger-zone">
   <h2>Danger zone</h2>
-  <form method="post" action="/artifacts/<%= artifact.id %>/delete" onsubmit="return confirm('Delete this artifact and all its snapshots?');">
+  <form method="post" action="/artifacts/<%= artifact.id %>/delete" data-confirm="Delete this artifact and all its snapshots?">
     <input type="hidden" name="_csrf" value="<%= csrfToken %>">
     <button class="btn btn-danger">Delete artifact</button>
   </form>

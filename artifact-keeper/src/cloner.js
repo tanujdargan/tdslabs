@@ -3,6 +3,7 @@
 const fs = require('fs');
 const crypto = require('crypto');
 const config = require('./config');
+const { assertPublicUrl, safeFetch, readCapped } = require('./net');
 
 let chromium = null;
 try {
@@ -52,37 +53,30 @@ function sha256(text) {
   return crypto.createHash('sha256').update(text).digest('hex');
 }
 
-// Hash a normalised copy of the HTML so cosmetic whitespace churn does not
-// register as a real change.
+// Hash the captured bytes as-is. Normalising whitespace would collapse
+// meaningful changes inside <pre>, <textarea>, CSS, and JS strings, causing a
+// real update to be mistaken for "unchanged" and served stale.
 function contentHash(html) {
-  return sha256(String(html).replace(/\s+/g, ' ').trim());
+  return sha256(String(html));
 }
 
 // --- Server-side asset fetching (avoids browser CORS restrictions) ---------
 
 async function fetchAsset(url) {
-  if (!/^https?:\/\//i.test(url)) return null;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 20000);
   try {
-    const res = await fetch(url, {
-      signal: controller.signal,
+    const res = await safeFetch(url, {
       headers: { 'User-Agent': config.clone.userAgent },
-      redirect: 'follow',
     });
     if (!res.ok) return null;
-    const len = Number(res.headers.get('content-length') || 0);
-    if (len && len > config.clone.maxAssetBytes) return null;
-    const buf = Buffer.from(await res.arrayBuffer());
-    if (buf.length > config.clone.maxAssetBytes) return null;
+    const buf = await readCapped(res, config.clone.maxAssetBytes);
+    if (!buf) return null;
     const contentType =
       (res.headers.get('content-type') || '').split(';')[0].trim() ||
       'application/octet-stream';
     return { buf, contentType };
   } catch {
+    // Includes SSRF-policy rejections and timeouts — skip the asset silently.
     return null;
-  } finally {
-    clearTimeout(timer);
   }
 }
 
@@ -243,15 +237,26 @@ async function selectPrimaryFrame(page) {
 
 async function cloneWithBrowser(url) {
   const executablePath = resolveBrowserExecutable();
+  // Keep Chromium's renderer sandbox on — the systemd install runs as a
+  // dedicated non-root service user, so it isn't needed to drop it.
   const browser = await chromium.launch({
     executablePath,
     headless: true,
-    args: ['--no-sandbox', '--disable-dev-shm-usage'],
+    args: ['--disable-dev-shm-usage'],
   });
   try {
     const context = await browser.newContext({
       userAgent: config.clone.userAgent,
       viewport: { width: 1280, height: 900 },
+    });
+    // Block navigation and subresources that resolve to private/reserved hosts.
+    await context.route('**/*', async (route) => {
+      try {
+        await assertPublicUrl(route.request().url());
+        return route.continue();
+      } catch {
+        return route.abort();
+      }
     });
     const page = await context.newPage();
     await page.goto(url, { waitUntil: 'load', timeout: config.clone.timeoutMs });
@@ -281,14 +286,18 @@ async function cloneWithBrowser(url) {
 // --- Fetch-only fallback ---------------------------------------------------
 
 async function cloneWithFetch(url) {
-  const res = await fetch(url, {
+  const res = await safeFetch(url, {
     headers: { 'User-Agent': config.clone.userAgent },
-    redirect: 'follow',
+    timeoutMs: config.clone.timeoutMs,
   });
   if (!res.ok) {
     throw new Error(`Fetch failed with HTTP ${res.status}`);
   }
-  let html = await res.text();
+  const buf = await readCapped(res, config.clone.maxHtmlBytes);
+  if (!buf) {
+    throw new Error('Page is larger than the allowed maximum.');
+  }
+  let html = buf.toString('utf8');
   const origin = new URL(url).origin;
   const base = new URL('./', url).href;
 
@@ -309,6 +318,9 @@ async function cloneWithFetch(url) {
 // --- Public API ------------------------------------------------------------
 
 async function cloneUrl(url) {
+  // Reject private/reserved destinations up front (redirects + subresources are
+  // re-checked at fetch time and by the browser request router).
+  await assertPublicUrl(url);
   let result;
   if (browserAvailable()) {
     try {

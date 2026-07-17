@@ -129,6 +129,62 @@ function deleteArtifact(id) {
   }
 }
 
+// Persist a clone result: re-check the latest hash, write the file, insert the
+// snapshot, and move the artifact's current pointer — all in one synchronous
+// db.transaction so two concurrent refreshes (manual + scheduled) can't insert
+// duplicate snapshots or leave current_snapshot_id pointing at stale content.
+// The file is removed if the transaction rolls back.
+function persistSnapshot(artifact, result, now) {
+  const dir = artifactDir(artifact.slug);
+  const filename = `${Date.now()}-${crypto.randomBytes(4).toString('hex')}.html`;
+  const filePath = path.join(dir, filename);
+  const title = artifact.title || result.title || null;
+
+  const tx = db.transaction(() => {
+    // Re-read inside the transaction so we observe a concurrent insert.
+    const latest = db
+      .prepare('SELECT * FROM snapshots WHERE artifact_id = ? ORDER BY id DESC LIMIT 1')
+      .get(artifact.id);
+
+    if (latest && latest.hash === result.hash) {
+      db.prepare(
+        `UPDATE artifacts SET last_checked_at = ?, last_status = 'unchanged',
+                              last_error = NULL, title = COALESCE(title, ?) WHERE id = ?`
+      ).run(now, title, artifact.id);
+      return { changed: false, snapshot: null };
+    }
+
+    fs.writeFileSync(filePath, result.html, 'utf8');
+    const snapInfo = db
+      .prepare(
+        `INSERT INTO snapshots (artifact_id, hash, filename, size_bytes, method)
+         VALUES (?, ?, ?, ?, ?)`
+      )
+      .run(artifact.id, result.hash, filename, result.size, result.method);
+
+    db.prepare(
+      `UPDATE artifacts
+          SET last_checked_at = ?, last_status = ?, last_error = NULL,
+              current_snapshot_id = ?, title = COALESCE(title, ?)
+        WHERE id = ?`
+    ).run(now, latest ? 'updated' : 'cloned', snapInfo.lastInsertRowid, title, artifact.id);
+
+    return { changed: true, snapshot: getSnapshot(snapInfo.lastInsertRowid) };
+  });
+
+  try {
+    return tx();
+  } catch (err) {
+    // DB already rolled back; drop the orphaned file we may have written.
+    try {
+      fs.rmSync(filePath, { force: true });
+    } catch {
+      /* ignore */
+    }
+    throw err;
+  }
+}
+
 // Clone the source URL and, if the content changed, persist a new snapshot.
 // Returns { changed, snapshot|null, warning }.
 async function refreshArtifact(id) {
@@ -138,39 +194,8 @@ async function refreshArtifact(id) {
   const now = new Date().toISOString().replace('T', ' ').slice(0, 19);
   try {
     const result = await cloner.cloneUrl(artifact.source_url);
-    const latest = db
-      .prepare('SELECT * FROM snapshots WHERE artifact_id = ? ORDER BY id DESC LIMIT 1')
-      .get(id);
-
-    const title = artifact.title || result.title || null;
-
-    if (latest && latest.hash === result.hash) {
-      db.prepare(
-        `UPDATE artifacts SET last_checked_at = ?, last_status = 'unchanged',
-                              last_error = NULL, title = COALESCE(title, ?) WHERE id = ?`
-      ).run(now, title, id);
-      return { changed: false, snapshot: null, warning: result.warning };
-    }
-
-    const dir = artifactDir(artifact.slug);
-    const filename = `${Date.now()}-${crypto.randomBytes(4).toString('hex')}.html`;
-    fs.writeFileSync(path.join(dir, filename), result.html, 'utf8');
-
-    const snapInfo = db
-      .prepare(
-        `INSERT INTO snapshots (artifact_id, hash, filename, size_bytes, method)
-         VALUES (?, ?, ?, ?, ?)`
-      )
-      .run(id, result.hash, filename, result.size, result.method);
-
-    db.prepare(
-      `UPDATE artifacts
-          SET last_checked_at = ?, last_status = ?, last_error = NULL,
-              current_snapshot_id = ?, title = COALESCE(title, ?)
-        WHERE id = ?`
-    ).run(now, latest ? 'updated' : 'cloned', snapInfo.lastInsertRowid, title, id);
-
-    return { changed: true, snapshot: getSnapshot(snapInfo.lastInsertRowid), warning: result.warning };
+    const outcome = persistSnapshot(artifact, result, now);
+    return { ...outcome, warning: result.warning };
   } catch (err) {
     db.prepare(
       `UPDATE artifacts SET last_checked_at = ?, last_status = 'error', last_error = ? WHERE id = ?`

@@ -70,6 +70,8 @@ const config = {
     timeoutMs: envInt('ARTIFACT_KEEPER_CLONE_TIMEOUT_MS', 45000),
     // Max size (bytes) for a single inlined asset. Larger assets are skipped.
     maxAssetBytes: envInt('ARTIFACT_KEEPER_MAX_ASSET_BYTES', 8 * 1024 * 1024),
+    // Max size (bytes) for a fetched page in fetch-only fallback mode.
+    maxHtmlBytes: envInt('ARTIFACT_KEEPER_MAX_HTML_BYTES', 16 * 1024 * 1024),
     userAgent:
       process.env.ARTIFACT_KEEPER_USER_AGENT ||
       'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',

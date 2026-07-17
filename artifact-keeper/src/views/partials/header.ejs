@@ -2,7 +2,7 @@
   <div class="wrap topbar-inner">
     <a class="brand" href="/">📦 Artifact Keeper</a>
     <nav class="nav">
-      <% if (currentUser) { %>
+      <% if (locals.currentUser) { %>
         <a href="/">Artifacts</a>
         <span class="who">@<%= currentUser.username %></span>
         <form method="post" action="/logout" class="inline">

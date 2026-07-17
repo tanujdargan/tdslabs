@@ -5,6 +5,7 @@ const auth = require('../auth');
 const artifacts = require('../artifacts');
 const config = require('../config');
 const cloner = require('../cloner');
+const net = require('../net');
 
 const router = express.Router();
 
@@ -23,6 +24,8 @@ router.get('/', (req, res) => {
 router.post('/artifacts', auth.verifyCsrf, async (req, res) => {
   const { source_url, title, is_public, interval } = req.body;
   try {
+    // Reject private/reserved destinations before persisting anything.
+    await net.assertPublicUrl(source_url);
     const artifact = artifacts.createArtifact({
       sourceUrl: source_url,
       title,
