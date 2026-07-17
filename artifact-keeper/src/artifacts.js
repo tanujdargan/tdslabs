@@ -7,6 +7,14 @@ const db = require('./db');
 const config = require('./config');
 const cloner = require('./cloner');
 
+// Sentinel source_url for artifacts imported as raw HTML (no live page to
+// re-clone). These are never scheduled and their "source" is the upload itself.
+const IMPORTED_SOURCE = 'imported';
+
+function isImported(artifact) {
+  return !!artifact && artifact.source_url === IMPORTED_SOURCE;
+}
+
 function slugify(input) {
   return String(input || '')
     .toLowerCase()
@@ -185,6 +193,46 @@ function persistSnapshot(artifact, result, now) {
   }
 }
 
+// Import raw HTML the user saved from their own browser (the reliable way to
+// host a page that sits behind a bot challenge). Stores the bytes directly as
+// the first snapshot; the artifact is disabled so the scheduler never tries to
+// re-clone the non-existent source.
+function importArtifact({ html, title, isPublic }) {
+  const body = String(html || '');
+  if (!body.trim()) throw new Error('Paste or upload the artifact HTML.');
+  const bytes = Buffer.byteLength(body, 'utf8');
+  if (bytes > config.clone.maxHtmlBytes) {
+    throw new Error(`HTML is larger than the ${Math.round(config.clone.maxHtmlBytes / 1048576)} MB limit.`);
+  }
+  const cleanTitle = (title || '').trim();
+  const base = uniqueSlug(slugify(cleanTitle) || 'imported');
+  const info = db
+    .prepare(
+      `INSERT INTO artifacts (slug, source_url, title, is_public, enabled)
+       VALUES (?, ?, ?, ?, 0)`
+    )
+    .run(base, IMPORTED_SOURCE, cleanTitle || null, isPublic ? 1 : 0);
+  const artifact = getArtifact(info.lastInsertRowid);
+
+  const now = new Date().toISOString().replace('T', ' ').slice(0, 19);
+  const result = {
+    html: body,
+    hash: cloner.contentHash(body),
+    size: bytes,
+    method: 'import',
+    title: cleanTitle || null,
+  };
+  try {
+    persistSnapshot(artifact, result, now);
+  } catch (err) {
+    // Don't leave an artifact row with no snapshot behind.
+    db.prepare('DELETE FROM artifacts WHERE id = ?').run(artifact.id);
+    throw err;
+  }
+  db.prepare("UPDATE artifacts SET last_status = 'imported' WHERE id = ?").run(artifact.id);
+  return getArtifact(artifact.id);
+}
+
 // Clone the source URL and, if the content changed, persist a new snapshot.
 // Returns { changed, snapshot|null, warning }.
 async function refreshArtifact(id) {
@@ -222,12 +270,15 @@ function getCurrentSnapshot(artifact) {
 
 module.exports = {
   isValidHttpUrl,
+  isImported,
+  IMPORTED_SOURCE,
   listArtifacts,
   getArtifact,
   getArtifactBySlug,
   listSnapshots,
   getSnapshot,
   createArtifact,
+  importArtifact,
   updateArtifact,
   deleteArtifact,
   refreshArtifact,

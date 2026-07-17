@@ -142,6 +142,10 @@ if [ ! -f "$ENV_FILE" ]; then
     echo "# Set when serving behind an HTTPS reverse proxy:"
     echo "# ARTIFACT_KEEPER_SECURE_COOKIE=true"
     echo "# ARTIFACT_KEEPER_BASE_URL=https://artifacts.example.com"
+    echo "# Dedicated cookie-free host for cloned artifacts, so storage-using"
+    echo "# artifacts (localStorage/IndexedDB) render safely. Point a second"
+    echo "# hostname at this app and set it here:"
+    echo "# ARTIFACT_KEEPER_ARTIFACT_HOST=view.example.com"
     [ -n "$CHROMIUM_PATH" ] && echo "ARTIFACT_KEEPER_CHROMIUM_PATH=$CHROMIUM_PATH"
     # Force fetch-only so a pre-existing system Chromium isn't picked up.
     [ "${AK_NO_BROWSER:-0}" = "1" ] && echo "ARTIFACT_KEEPER_DISABLE_BROWSER=true"
