@@ -66,6 +66,20 @@ app.use(
 app.use(express.urlencoded({ extended: false, limit: '256kb' }));
 app.use('/static', express.static(path.join(__dirname, '..', 'public'), { maxAge: '1h' }));
 
+// When a dedicated artifact host is configured, it must serve ONLY artifact,
+// health, and static routes — never login/setup/dashboard, so no session cookie
+// is ever set on that host. That keeps it cookie-free, which is what makes
+// same-origin storage safe for cloned pages there.
+if (config.artifactHost) {
+  app.use((req, res, next) => {
+    if (req.hostname.toLowerCase() !== config.artifactHost) return next();
+    const allowed =
+      req.path === '/health' || req.path.startsWith('/a/') || req.path.startsWith('/static/');
+    if (!allowed) return res.status(404).type('text/plain').send('Not found');
+    next();
+  });
+}
+
 // Public artifact hosting + health are mounted first — before the template-data
 // middleware — so anonymous visitors to /a/:slug and /health never touch the
 // session (no CSRF token, no flash), which would otherwise persist a session
@@ -78,6 +92,7 @@ app.use((req, res, next) => {
     ? auth.getUserById(req.session.userId)
     : null;
   res.locals.baseUrl = config.baseUrl;
+  res.locals.artifactBaseUrl = config.artifactBaseUrl;
   res.locals.flash = req.session.flash || null;
   delete req.session.flash;
   // Generate the CSRF token lazily so a view that never references it doesn't

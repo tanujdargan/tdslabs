@@ -90,8 +90,37 @@ Common ones:
 | `ARTIFACT_KEEPER_SCHEDULER_CRON` | `*/5 * * * *` | Scheduler wake frequency |
 | `ARTIFACT_KEEPER_SECURE_COOKIE` | `false` | Set `true` behind HTTPS |
 | `ARTIFACT_KEEPER_BASE_URL` | _(empty)_ | Public URL used in share links |
+| `ARTIFACT_KEEPER_ARTIFACT_HOST` | _(empty)_ | Dedicated cookie-free host for cloned artifacts (see below) |
 | `ARTIFACT_KEEPER_CHROMIUM_PATH` | auto | Explicit Chromium binary |
 | `ARTIFACT_KEEPER_ADMIN_USER` / `_PASSWORD` | _(empty)_ | Seed admin for unattended installs |
+
+### Serving storage-using artifacts (dedicated artifact host)
+
+Cloned pages are sandboxed so their scripts can't reach the dashboard's session.
+By default that sandbox uses an **opaque origin** — maximally safe, but it also
+denies `localStorage`, `IndexedDB`, and cookies, so an artifact that uses those
+(many Claude artifacts do) renders blank.
+
+To let those work without weakening isolation, serve artifacts from a **second,
+cookie-free hostname** pointed at the same app:
+
+```ini
+ARTIFACT_KEEPER_ARTIFACT_HOST=view.example.com
+```
+
+With this set:
+
+- Public artifacts are served **only** on `view.example.com`, with same-origin
+  storage enabled. Links on the dashboard redirect there automatically.
+- The dashboard, login, and session cookie stay on your main host. That host is
+  never served on `view.example.com` (login/dashboard there return 404), so the
+  artifact host carries no cookie — a cloned page there has nothing to steal.
+- Private artifacts remain on the main host (they need your session) and keep
+  the strict opaque sandbox.
+
+Point both hostnames at the app (same reverse proxy / tunnel, same
+`127.0.0.1:8787`). This mirrors how GitHub serves user content from
+`raw.githubusercontent.com`.
 
 ### Behind a reverse proxy (recommended)
 
@@ -139,13 +168,20 @@ credentials-file: /root/.cloudflared/<tunnel-uuid>.json
 ingress:
   - hostname: artifacts.example.com
     service: http://127.0.0.1:8787
+  # Optional second hostname for storage-using artifacts (same service):
+  - hostname: view.example.com
+    service: http://127.0.0.1:8787
   - service: http_status:404
 ```
 
 ```bash
 cloudflared tunnel route dns <tunnel-name> artifacts.example.com
+cloudflared tunnel route dns <tunnel-name> view.example.com   # if using an artifact host
 cloudflared service install   # run as a systemd service
 ```
+
+If you set `ARTIFACT_KEEPER_ARTIFACT_HOST=view.example.com`, both hostnames point
+at the same service — the app routes by `Host` header.
 
 Notes:
 

@@ -12,8 +12,9 @@
       </p>
       <p class="small">
         Hosted at:
-        <% var share = (baseUrl || '') + '/a/' + artifact.slug; %>
-        <a href="/a/<%= artifact.slug %>" target="_blank" rel="noopener"><%= share %></a>
+        <% var base = (artifact.is_public && artifactBaseUrl) ? artifactBaseUrl : (baseUrl || ''); %>
+        <% var share = base + '/a/' + artifact.slug; %>
+        <a href="<%= share || ('/a/' + artifact.slug) %>" target="_blank" rel="noopener"><%= share || ('/a/' + artifact.slug) %></a>
       </p>
     </div>
     <div class="actions">

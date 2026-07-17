@@ -41,7 +41,7 @@
           <tr>
             <td>
               <a class="strong" href="/artifacts/<%= a.id %>"><%= a.title || a.slug %></a>
-              <div class="muted small"><a href="/a/<%= a.slug %>" target="_blank" rel="noopener">/a/<%= a.slug %></a><% if (!a.is_public) { %> · <span class="tag">private</span><% } %><% if (!a.enabled) { %> · <span class="tag">paused</span><% } %></div>
+              <div class="muted small"><a href="<%= ((a.is_public && artifactBaseUrl) ? artifactBaseUrl : '') + '/a/' + a.slug %>" target="_blank" rel="noopener">/a/<%= a.slug %></a><% if (!a.is_public) { %> · <span class="tag">private</span><% } %><% if (!a.enabled) { %> · <span class="tag">paused</span><% } %></div>
             </td>
             <td><span class="status status-<%= a.last_status || 'new' %>"><%= a.last_status || 'new' %></span></td>
             <td><%= a.snapshot_count %></td>
