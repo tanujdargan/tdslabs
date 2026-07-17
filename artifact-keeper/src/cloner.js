@@ -3,7 +3,7 @@
 const fs = require('fs');
 const crypto = require('crypto');
 const config = require('./config');
-const { assertPublicUrl, safeFetch, readCapped } = require('./net');
+const { assertPublicUrl, safeFetch } = require('./net');
 
 let chromium = null;
 try {
@@ -66,14 +66,10 @@ async function fetchAsset(url) {
   try {
     const res = await safeFetch(url, {
       headers: { 'User-Agent': config.clone.userAgent },
+      maxBytes: config.clone.maxAssetBytes,
     });
-    if (!res.ok) return null;
-    const buf = await readCapped(res, config.clone.maxAssetBytes);
-    if (!buf) return null;
-    const contentType =
-      (res.headers.get('content-type') || '').split(';')[0].trim() ||
-      'application/octet-stream';
-    return { buf, contentType };
+    if (!res.ok || !res.buffer) return null;
+    return { buf: res.buffer, contentType: res.contentType };
   } catch {
     // Includes SSRF-policy rejections and timeouts — skip the asset silently.
     return null;
@@ -289,15 +285,15 @@ async function cloneWithFetch(url) {
   const res = await safeFetch(url, {
     headers: { 'User-Agent': config.clone.userAgent },
     timeoutMs: config.clone.timeoutMs,
+    maxBytes: config.clone.maxHtmlBytes,
   });
   if (!res.ok) {
     throw new Error(`Fetch failed with HTTP ${res.status}`);
   }
-  const buf = await readCapped(res, config.clone.maxHtmlBytes);
-  if (!buf) {
+  if (!res.buffer) {
     throw new Error('Page is larger than the allowed maximum.');
   }
-  let html = buf.toString('utf8');
+  let html = res.buffer.toString('utf8');
   const origin = new URL(url).origin;
   const base = new URL('./', url).href;
 
